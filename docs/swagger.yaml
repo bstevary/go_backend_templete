@@ -1,0 +1,13 @@
+basePath: /
+host: localhost:8080
+info:
+  contact: {}
+  description: This is the API for the PHCMIS system
+  title: PHCMIS API
+  version: "1.0"
+paths: {}
+produces:
+- application/json
+schemes:
+- http
+swagger: "2.0"

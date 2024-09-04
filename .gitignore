@@ -1,0 +1,15 @@
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+ vendor/
+node_modules
+*.log
+dist
+.vit
+stats.html
+.eslintcache
+go.work
