@@ -3,8 +3,6 @@ package handler
 import (
 	"time"
 
-	"phcmis/databases/persist/model"
-
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -20,10 +18,4 @@ func dateToPgDate(value time.Time) pgtype.Date {
 		return pgtype.Date{Valid: false}
 	}
 	return pgtype.Date{Time: value, Valid: true}
-}
-
-type ListUsersResponse struct {
-	Users      []model.ListUsersRow `json:"users"`
-	NextCursor string               `json:"next_cursor"`
-	RowCount   int64                `json:"row_count"`
 }

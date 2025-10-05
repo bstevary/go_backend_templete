@@ -1,57 +1,50 @@
 package server
 
 import (
-	"phcmis/config"
-	"phcmis/databases/redis/daemon"
-	_ "phcmis/docs"
-	"phcmis/services/auth"
+	"net/http"
+	"time"
 
-	"github.com/go-redis/cache/v9"
+	"github.com/bstevary/hexagonal/config"
+	"github.com/bstevary/hexagonal/utils/auth"
+
 	"github.com/go-redis/redis_rate/v10"
-	swaggerfiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 
-	"phcmis/databases/persist/db"
-
-	"phcmis/http/handler"
-	"phcmis/http/middleware"
+	"github.com/bstevary/hexagonal/http/handler"
+	"github.com/bstevary/hexagonal/http/middleware"
+	"github.com/bstevary/hexagonal/http/server/routes"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-type RouterConfig struct {
-	config          config.Config
-	db              db.Store
-	token           auth.TokenGenerator
-	limiter         *redis_rate.Limiter
-	taskDistributer daemon.TaskDistributor
-	cache           *cache.Cache
+type routerConfig struct {
+	handler *handler.Handler
+	env     *config.Env
+	token   auth.TokenGenerator
+	limiter *redis_rate.Limiter
 }
 
-// newRouter creates a new instance of the gin.Engine router with the provided RouterConfig.
-// It sets up middleware, session management, CSRF protection, rate limiting, and routes.
-// The router is returned as the result.
-func newRouter(rc RouterConfig) *gin.Engine {
+func newRouter(rc routerConfig) *gin.Engine {
 	router := gin.New()
 
-	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOrigins = []string{"http://localhost:5173"}
-	corsConfig.AllowHeaders = append(corsConfig.AllowHeaders, "Authorization")
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     rc.env.AllowedOrigins,
+		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodDelete},
+		AllowHeaders:     []string{"Content-Type", "Authorization", "Accept", "Origin"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
-	corsConfig.AllowCredentials = true
-	router.Use(cors.New(corsConfig))
-
-	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
-
-	router.Use(middleware.LoggerMiddleware())
 	router.Use(gin.Recovery())
+	router.Use(middleware.LoggerMiddleware())
 
-	Handler := handler.NewHandler(rc.db, rc.taskDistributer, rc.cache, rc.token, rc.config)
-	router = addUnprotectedRoutes(router, Handler, rc.limiter)
-	router.Use(middleware.AuthMiddleware(rc.token))
+	v1 := router.Group("api/v1/")
 
-	router = addProtectedRoutes(router, Handler, rc.limiter)
+	routes.AddAuthRoutes(v1, rc.handler, rc.limiter)
+
+	// authenticated
+	v1.Use(middleware.AuthMiddleware(rc.token))
 
 	return router
 }

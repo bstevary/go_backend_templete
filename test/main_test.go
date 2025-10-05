@@ -8,18 +8,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
-	"phcmis/config"
-	"phcmis/databases/persist/db"
+	config "github.com/bstevary/hexagonal/config"
+	"github.com/bstevary/hexagonal/database/db"
 
 	_ "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var testStore db.Store
+var testStore db.Database
 
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
-	config, err := config.LoadConfig("../")
+	config, err := config.LoadEnv("../")
 	if err != nil {
 		log.Fatal().Msgf("cannot load configuration: %v", err)
 	}
@@ -27,6 +27,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatal().Msgf("cannot connect to db: %v", err)
 	}
-	testStore = db.NewStore(connPool)
+	testStore = db.NewDatabase(connPool)
 	os.Exit(m.Run())
 }

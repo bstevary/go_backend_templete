@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{.Title}}</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", "Segoe UI", "Helvetica Neue", Helvetica, Arial,
+          sans-serif;
+        color: #333;
+        background-color: #f7f7f7; /* Light background for email clients */
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        border-radius: 6px;
+        line-height: 1.6;
+        background-color: #ffffff; /* White background for the content area */
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Subtle shadow for depth */
+      }
+
+      .header {
+        border-bottom: 1px solid #e0e0e0; /* Lighter border */
+        padding-bottom: 15px;
+        text-align: center; /* Center the logo/company name */
+      }
+
+      .header a {
+        font-size: 1.8em; /* Slightly larger for prominence */
+        color: #59ba49; /* Primary color for company name */
+        text-decoration: none;
+        font-weight: 700; /* Bolder */
+      }
+
+      .content {
+        margin-top: 25px; /* More space above content */
+        font-size: 1em;
+      }
+
+      .otp-code {
+        font-size: 1.8em; /* Larger and more prominent */
+        font-weight: bold;
+        font-family: monospace;
+        color: #59ba49; /* Primary color */
+        text-align: center;
+        padding: 15px 25px; /* More padding */
+        border: 2px dashed #59ba49; /* Primary color for dashed border */
+        background-color: #e1f5ea; /* Tertiary color for background */
+        border-radius: 8px;
+        display: block; /* Make it a block element to take full width */
+        margin: 20px auto; /* Centered with more vertical margin */
+        max-width: 250px; /* Limit width for visual appeal */
+      }
+
+      .action-button {
+        display: block; /* Make it a block element for better centering */
+        width: fit-content; /* Adjust width to content */
+        padding: 14px 28px; /* More padding for a larger button */
+        margin: 25px auto 15px auto; /* Centered with more vertical margin */
+        background-color: #59ba49; /* Primary color */
+        color: #fff;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1.1em; /* Slightly larger text */
+        border-radius: 6px;
+        text-align: center;
+        transition: background-color 0.3s ease;
+      }
+
+      .action-button:hover {
+        background-color: #4a9e3d; /* A darker shade of primary for hover */
+      }
+
+      .footer {
+        color: #777; /* Softer gray */
+        font-size: 0.85em;
+        border-top: 1px solid #e0e0e0; /* Lighter border */
+        margin-top: 35px; /* More space above footer */
+        padding-top: 15px;
+        line-height: 1.5;
+        text-align: center; /* Center footer text */
+      }
+
+      .email-info {
+        color: #666;
+        font-size: 13px;
+        padding-bottom: 8px; /* More padding */
+      }
+
+      .email-info a {
+        text-decoration: none;
+        color: #59ba49; /* Primary color for links */
+        font-weight: 500;
+      }
+
+      .signature {
+        font-size: 0.9em;
+        margin-top: 30px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="header">
+        <a href="{{.CompanyURL}}" target="_blank" rel="noopener noreferrer">
+          {{.CompanyName}}
+        </a>
+      </div>
+
+      <div class="content">
+        <p><strong>Dear {{.Name}},</strong></p>
+
+        <p>{{.Message}}</p>
+
+        <p style="text-align: center; margin-top: 20px">
+          <strong>Your One-Time Password (OTP) is :</strong>
+        </p>
+        <div class="otp-code">{{.OTP}}</div>
+
+        <p style="text-align: center; margin-top: 25px">
+          <strong
+            >Alternatively, you can click the button below to proceed:</strong
+          >
+        </p>
+        <a
+          class="action-button"
+          href="{{.Link}}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{.Action}}
+        </a>
+
+        <p class="signature">
+          <strong>Important:</strong> Your One-Time Password (OTP) is valid for
+          a limited time 3 minutes. <br /><br />
+          {{.Concern}}<br />
+          Please keep this email and the OTP confidential. Do not share it with
+          anyone, including those claiming to be from {{.CompanyName}}. Your
+          security is our top priority as we empower your business.
+          <br /><br />
+          Best regards,
+          <br />
+          <strong>The {{.CompanyName}} Team</strong>
+        </p>
+
+        <div class="footer">
+          <p>This is an automated email; please do not reply.</p>
+          <p>
+            For more information about {{.CompanyName}} and our microfinance
+            solutions, visit:
+            <span class="email-info">
+              <a
+                href="{{.CompanyURL}}"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <strong>{{.CompanyURL}}</strong>
+              </a>
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div
+        style="
+          text-align: center;
+          margin-top: 20px;
+          padding-top: 10px;
+          border-top: 1px solid #e0e0e0;
+        "
+      >
+        <div class="email-info">
+          For any assistance or feedback, please contact us at
+          <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a>
+        </div>
+        <div class="email-info">
+          <a href="{{.CompanyURL}}" target="_blank">{{.CompanyName}}</a>
+          | {{.CompanyAddress}}
+        </div>
+        <div class="email-info">
+          &copy; {{.Year}} {{.CompanyName}}. All rights reserved.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

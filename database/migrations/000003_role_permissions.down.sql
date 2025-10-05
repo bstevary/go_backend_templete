@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS authorities;
+
+DROP TABLE IF EXISTS privileges;
+
+DROP TABLE IF EXISTS roles;
+
+DROP TABLE IF EXISTS permissions;
+

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"phcmis/services/auth"
-	"phcmis/test"
+	test "github.com/bstevary/hexagonal/test"
+	"github.com/bstevary/hexagonal/utils/auth"
 
 	"github.com/stretchr/testify/require"
 )

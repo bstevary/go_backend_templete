@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"phcmis/databases/persist/db"
-	"phcmis/services/gin_pgx_err"
+	"github.com/bstevary/hexagonal/database/db"
+	"github.com/bstevary/hexagonal/utils/res"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,7 +18,7 @@ func (u Handler) ActivateUserAccount(c *gin.Context) {
 	var req VarifyEmailRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusBadRequest, res.Format(c, err))
 		return
 	}
 
@@ -26,7 +26,7 @@ func (u Handler) ActivateUserAccount(c *gin.Context) {
 		SecretCode: req.SecretCode,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
 	fmt.Println(txResult.User.IsEmailVerified)

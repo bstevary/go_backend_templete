@@ -3,8 +3,8 @@ package unit
 import (
 	"testing"
 
-	"phcmis/config"
-	"phcmis/services/gmail"
+	config "github.com/bstevary/hexagonal/config"
+	"github.com/bstevary/hexagonal/services/mailer"
 
 	"github.com/stretchr/testify/require"
 )
@@ -14,10 +14,10 @@ func TestSendEmailWithGmail(t *testing.T) {
 		t.Skip()
 	}
 
-	config, err := config.LoadConfig("../../")
+	config, err := config.LoadEnv("../../")
 	require.NoError(t, err)
 
-	sender := gmail.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
+	sender := mailer.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
 
 	subject := "A test email"
 	content := `
@@ -27,6 +27,11 @@ func TestSendEmailWithGmail(t *testing.T) {
 	to := []string{"techschool.guru@gmail.com"}
 	attachFiles := []string{"../README.md"}
 
-	err = sender.SendEmail(subject, content, to, nil, nil, attachFiles)
+	err = sender.SendEmail(mailer.EmailMessage{
+		Subject:     subject,
+		Body:        []byte(content),
+		To:          to,
+		Attachments: attachFiles,
+	})
 	require.NoError(t, err)
 }

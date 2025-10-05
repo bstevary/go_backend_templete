@@ -3,8 +3,8 @@ package unit_test
 import (
 	"testing"
 
-	"phcmis/services/auth"
-	"phcmis/test"
+	test "github.com/bstevary/hexagonal/test"
+	"github.com/bstevary/hexagonal/utils/auth"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"

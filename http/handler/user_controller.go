@@ -6,12 +6,12 @@ import (
 	"strconv"
 	"time"
 
-	"phcmis/databases/persist/db"
-	"phcmis/databases/persist/model"
-	"phcmis/databases/redis/daemon"
-	"phcmis/services/auth"
-	"phcmis/services/gin_pgx_err"
-	"phcmis/services/phc"
+	"github.com/bstevary/hexagonal/database/db"
+	"github.com/bstevary/hexagonal/database/model"
+	"github.com/bstevary/hexagonal/jobs"
+
+	"github.com/bstevary/hexagonal/utils/auth"
+	"github.com/bstevary/hexagonal/utils/res"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
@@ -29,13 +29,13 @@ type CreateUserRequest struct {
 func (u Handler) CreateUserAccount(c *gin.Context) {
 	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusBadRequest, res.Format(c, err))
 		return
 	}
 
 	HashedPassword, err := auth.HashPassword(req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
 
@@ -50,24 +50,24 @@ func (u Handler) CreateUserAccount(c *gin.Context) {
 		},
 		AfterCreateUser: func(user model.CreateUserRow) error {
 			//  send email verification
-			taskPayload := &daemon.PayloadSendAcitvateAccountInvitationEmail{
-				Email:      user.Email,
-				SecretCode: phc.GeneratePHCID(),
+			taskPayload := &jobs.PayloadSendAuthEmail{
+				UserID: user.UserID,
+				Type:   "activate",
 			}
 
 			opts := []asynq.Option{
 				asynq.ProcessIn(10 * time.Second),
-				asynq.Queue(daemon.CriticalQueue),
+				asynq.Queue(jobs.CriticalQueue),
 			}
 
-			return u.taskDistributer.DistributeSendAcitvateAccountInvitationEmail(c, taskPayload, opts...)
+			return u.taskDistributer.DistributeTaskSendAuthEmail(c, taskPayload, opts...)
 		},
 	}
 
 	txResult, err := u.db.CreateUserTx(c, arg)
 	if err != nil {
 
-		c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusBadRequest, res.Format(c, err))
 		return
 	}
 
@@ -90,12 +90,12 @@ type GetUserResponse struct {
 func (u Handler) GetUser(c *gin.Context) {
 	var req UserRequestQuery
 	if err := c.ShouldBindUri(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusBadRequest, res.Format(c, err))
 		return
 	}
 	user, err := u.db.SelectUserByEmail(c, req.Email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
 	resp := GetUserResponse{
@@ -121,14 +121,14 @@ type UpdateUserRequest struct {
 func (u Handler) UpdateUser(c *gin.Context) {
 	var reqQ UserRequestQuery
 	if err := c.ShouldBindUri(&reqQ); err != nil {
-		c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusBadRequest, res.Format(c, err))
 		return
 	}
 
 	var req UpdateUserRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusBadRequest, res.Format(c, err))
 		return
 	}
 
@@ -141,7 +141,7 @@ func (u Handler) UpdateUser(c *gin.Context) {
 	}
 	user, err := u.db.UpdateUser(c, arg)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
 
@@ -151,12 +151,12 @@ func (u Handler) UpdateUser(c *gin.Context) {
 func (u Handler) DeleteUser(c *gin.Context) {
 	var req UserRequestQuery
 	if err := c.ShouldBindUri(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusBadRequest, res.Format(c, err))
 		return
 	}
 	PHC_ID, err := u.db.DeleteUser(c, req.Email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
 
@@ -177,7 +177,7 @@ type ListAllUsersResponse struct {
 func (u Handler) ListUsers(c *gin.Context) {
 	var req ListUsersRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusBadRequest, res.Format(c, err))
 		return
 	}
 	var arg model.ListUsersParams
@@ -185,13 +185,13 @@ func (u Handler) ListUsers(c *gin.Context) {
 	if req.NextCursor != "" {
 		decodedCursor, err := base64.RawURLEncoding.DecodeString(req.NextCursor)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+			c.JSON(http.StatusBadRequest, res.Format(c, err))
 			return
 		}
 
 		decodedInt, err := strconv.ParseInt(string(decodedCursor), 10, 64)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+			c.JSON(http.StatusBadRequest, res.Format(c, err))
 			return
 		}
 
@@ -207,7 +207,7 @@ func (u Handler) ListUsers(c *gin.Context) {
 
 	users, err := u.db.ListUsers(c, arg)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
 
@@ -219,7 +219,7 @@ func (u Handler) ListUsers(c *gin.Context) {
 
 	resp.RowCount, err = u.db.CountUsers(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin_pgx_err.ErrorResponse(err))
+		c.JSON(http.StatusBadRequest, res.Format(c, err))
 		return
 	}
 
