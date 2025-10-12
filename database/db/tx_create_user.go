@@ -8,25 +8,21 @@ import (
 
 type CreateUserTxParams struct {
 	model.CreateUserParams
-	AfterCreateUser func(user model.CreateUserRow) error
-}
-type CreateUserTxResult struct {
-	User model.CreateUserRow
+	AfterCreateUser func(UserID string) error
 }
 
-func (store *SQLStore) CreateUserTx(ctx context.Context, arg CreateUserTxParams) (CreateUserTxResult, error) {
-	var result CreateUserTxResult
+func (store *SQLStore) CreateUserTx(ctx context.Context, arg CreateUserTxParams) error {
 
 	err := store.execTx(ctx, func(q *model.Queries) error {
 		var err error
 
-		result.User, err = q.CreateUser(ctx, arg.CreateUserParams)
+		err = q.CreateUser(ctx, arg.CreateUserParams)
 		if err != nil {
 			return err
 		}
 
-		return arg.AfterCreateUser(result.User)
+		return arg.AfterCreateUser(arg.ID)
 	})
 
-	return result, err
+	return err
 }

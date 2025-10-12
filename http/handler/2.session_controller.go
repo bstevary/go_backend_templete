@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (u Handler) RenewAcessToken(c *gin.Context) {
+func (u Handler) RenewAccessToken(c *gin.Context) {
 	cookie, err := c.Request.Cookie("refresh_token")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, res.Format(c, err))
@@ -45,7 +45,7 @@ func (u Handler) RenewAcessToken(c *gin.Context) {
 		return
 	}
 
-	if sesseion.Email != refreshPayload.Email {
+	if sesseion.UserID != refreshPayload.UserID {
 		err = fmt.Errorf("incorect sesseion user")
 		c.JSON(http.StatusUnauthorized, res.Format(c, err))
 		return
@@ -66,21 +66,22 @@ func (u Handler) RenewAcessToken(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, res.Format(c, err))
 		return
 	}
-	if time.Now().After(sesseion.ExpiresAt) {
+	if time.Now().After(sesseion.Expiry) {
 		err = fmt.Errorf("expired sesseion")
 		c.JSON(http.StatusUnauthorized, res.Format(c, err))
 		return
 	}
 
 	accessToken, accessPayload, err := u.tokenizer.CreateToken(
-		refreshPayload.Email,
-		u.config.AccessTokenDuration, c.ClientIP())
+		refreshPayload.UserID, refreshPayload.Permissions,
+		u.config.AccessTokenDuration, c.ClientIP(), refreshPayload.Scope,
+		refreshPayload.ActiveReference, refreshPayload.References)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
 
-	user, err := u.db.SelectUserByEmail(c, refreshPayload.Email)
+	user, err := u.db.GetUser(c, refreshPayload.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
@@ -90,12 +91,16 @@ func (u Handler) RenewAcessToken(c *gin.Context) {
 		SessionID:            sesseion.ID,
 		AccessToken:          accessToken,
 		AccessTokenExpiresAt: accessPayload.ExpiredAt,
-		User: AuthUserResponse{
-			UserID:    user.UserID,
+		ActiveRef:            accessPayload.ActiveReference,
+		References:           accessPayload.References,
+		Permissions:          accessPayload.Permissions,
+		Scope:                accessPayload.Scope,
+		User: User{
+			UserID:    user.ID,
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
-			Gender:    user.Gender,
-			Email:     user.Email},
+
+			Email: user.Email},
 	}
 
 	c.JSON(http.StatusOK, rsp)

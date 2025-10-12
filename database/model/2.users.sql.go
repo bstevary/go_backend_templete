@@ -31,7 +31,7 @@ INSERT INTO users (
     last_name,
     other_name,
     email,
-    contact,
+    accepted_terms,
     password,
     role,
     type
@@ -39,16 +39,16 @@ INSERT INTO users (
 `
 
 type CreateUserParams struct {
-	ID         string      `json:"id"`
-	FirstName  string      `json:"first_name"`
-	MiddleName pgtype.Text `json:"middle_name"`
-	LastName   string      `json:"last_name"`
-	OtherName  pgtype.Text `json:"other_name"`
-	Email      string      `json:"email"`
-	Contact    string      `json:"contact"`
-	Password   string      `json:"password"`
-	Role       string      `json:"role"`
-	Type       string      `json:"type"`
+	ID            string      `json:"id"`
+	FirstName     string      `json:"first_name"`
+	MiddleName    pgtype.Text `json:"middle_name"`
+	LastName      string      `json:"last_name"`
+	OtherName     pgtype.Text `json:"other_name"`
+	Email         string      `json:"email"`
+	AcceptedTerms bool        `json:"accepted_terms"`
+	Password      string      `json:"password"`
+	Role          string      `json:"role"`
+	Type          string      `json:"type"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
@@ -59,7 +59,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.LastName,
 		arg.OtherName,
 		arg.Email,
-		arg.Contact,
+		arg.AcceptedTerms,
 		arg.Password,
 		arg.Role,
 		arg.Type,
@@ -80,7 +80,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) (string, error) {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, first_name, middle_name, last_name, other_name, email, contact, password, is_active, is_locked, mfa_enabled, failed_attempts, notes, is_contact_verified, is_email_verified, last_security_check, last_password_change, last_login, accepted_terms, role, type, created_at, updated_at FROM users
+SELECT id, first_name, last_name, middle_name, other_name, email, password, is_active, is_locked, mfa_enabled, failed_attempts, notes, is_email_verified, last_security_check, last_password_change, last_login, accepted_terms, role, type, created_at, updated_at FROM users
 WHERE id = $1
 LIMIT 1
 `
@@ -91,18 +91,16 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.FirstName,
-		&i.MiddleName,
 		&i.LastName,
+		&i.MiddleName,
 		&i.OtherName,
 		&i.Email,
-		&i.Contact,
 		&i.Password,
 		&i.IsActive,
 		&i.IsLocked,
 		&i.MfaEnabled,
 		&i.FailedAttempts,
 		&i.Notes,
-		&i.IsContactVerified,
 		&i.IsEmailVerified,
 		&i.LastSecurityCheck,
 		&i.LastPasswordChange,
@@ -118,9 +116,9 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 
 const listUsers = `-- name: ListUsers :many
 SELECT 
-  id, first_name, middle_name, last_name, other_name, email, contact, 
-  role, type, is_active, is_locked, mfa_enabled, failed_attempts, 
-  is_email_verified, is_contact_verified, created_at, updated_at
+  id, first_name, middle_name, last_name, other_name, email, role,
+  type, is_active, is_locked, mfa_enabled, failed_attempts, 
+  is_email_verified, last_login, created_at, updated_at
 FROM users
 ORDER BY id DESC
 LIMIT $1 OFFSET $2
@@ -132,23 +130,22 @@ type ListUsersParams struct {
 }
 
 type ListUsersRow struct {
-	ID                string             `json:"id"`
-	FirstName         string             `json:"first_name"`
-	MiddleName        pgtype.Text        `json:"middle_name"`
-	LastName          string             `json:"last_name"`
-	OtherName         pgtype.Text        `json:"other_name"`
-	Email             string             `json:"email"`
-	Contact           string             `json:"contact"`
-	Role              string             `json:"role"`
-	Type              string             `json:"type"`
-	IsActive          bool               `json:"is_active"`
-	IsLocked          bool               `json:"is_locked"`
-	MfaEnabled        bool               `json:"mfa_enabled"`
-	FailedAttempts    int32              `json:"failed_attempts"`
-	IsEmailVerified   bool               `json:"is_email_verified"`
-	IsContactVerified bool               `json:"is_contact_verified"`
-	CreatedAt         time.Time          `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ID              string             `json:"id"`
+	FirstName       string             `json:"first_name"`
+	MiddleName      pgtype.Text        `json:"middle_name"`
+	LastName        string             `json:"last_name"`
+	OtherName       pgtype.Text        `json:"other_name"`
+	Email           string             `json:"email"`
+	Role            string             `json:"role"`
+	Type            string             `json:"type"`
+	IsActive        bool               `json:"is_active"`
+	IsLocked        bool               `json:"is_locked"`
+	MfaEnabled      bool               `json:"mfa_enabled"`
+	FailedAttempts  int32              `json:"failed_attempts"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	LastLogin       pgtype.Timestamptz `json:"last_login"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error) {
@@ -167,7 +164,6 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 			&i.LastName,
 			&i.OtherName,
 			&i.Email,
-			&i.Contact,
 			&i.Role,
 			&i.Type,
 			&i.IsActive,
@@ -175,7 +171,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 			&i.MfaEnabled,
 			&i.FailedAttempts,
 			&i.IsEmailVerified,
-			&i.IsContactVerified,
+			&i.LastLogin,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -189,45 +185,8 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 	return items, nil
 }
 
-const selectUserByContact = `-- name: SelectUserByContact :one
-SELECT id, first_name, middle_name, last_name, other_name, email, contact, password, is_active, is_locked, mfa_enabled, failed_attempts, notes, is_contact_verified, is_email_verified, last_security_check, last_password_change, last_login, accepted_terms, role, type, created_at, updated_at FROM users
-WHERE contact = $1
-LIMIT 1
-`
-
-func (q *Queries) SelectUserByContact(ctx context.Context, contact string) (User, error) {
-	row := q.db.QueryRow(ctx, selectUserByContact, contact)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.FirstName,
-		&i.MiddleName,
-		&i.LastName,
-		&i.OtherName,
-		&i.Email,
-		&i.Contact,
-		&i.Password,
-		&i.IsActive,
-		&i.IsLocked,
-		&i.MfaEnabled,
-		&i.FailedAttempts,
-		&i.Notes,
-		&i.IsContactVerified,
-		&i.IsEmailVerified,
-		&i.LastSecurityCheck,
-		&i.LastPasswordChange,
-		&i.LastLogin,
-		&i.AcceptedTerms,
-		&i.Role,
-		&i.Type,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const selectUserByEmail = `-- name: SelectUserByEmail :one
-SELECT id, first_name, middle_name, last_name, other_name, email, contact, password, is_active, is_locked, mfa_enabled, failed_attempts, notes, is_contact_verified, is_email_verified, last_security_check, last_password_change, last_login, accepted_terms, role, type, created_at, updated_at FROM users
+SELECT id, first_name, last_name, middle_name, other_name, email, password, is_active, is_locked, mfa_enabled, failed_attempts, notes, is_email_verified, last_security_check, last_password_change, last_login, accepted_terms, role, type, created_at, updated_at FROM users
 WHERE email = $1
 LIMIT 1
 `
@@ -238,18 +197,16 @@ func (q *Queries) SelectUserByEmail(ctx context.Context, email string) (User, er
 	err := row.Scan(
 		&i.ID,
 		&i.FirstName,
-		&i.MiddleName,
 		&i.LastName,
+		&i.MiddleName,
 		&i.OtherName,
 		&i.Email,
-		&i.Contact,
 		&i.Password,
 		&i.IsActive,
 		&i.IsLocked,
 		&i.MfaEnabled,
 		&i.FailedAttempts,
 		&i.Notes,
-		&i.IsContactVerified,
 		&i.IsEmailVerified,
 		&i.LastSecurityCheck,
 		&i.LastPasswordChange,
@@ -268,28 +225,18 @@ UPDATE users
 SET 
   updated_at = NOW(),
   email = COALESCE($2, email),
-  contact = COALESCE($3, contact),
-  is_email_verified = COALESCE($4, is_email_verified),
-  is_contact_verified = COALESCE($5, is_contact_verified)
+  is_email_verified = COALESCE($3, is_email_verified)
 WHERE id = $1
 `
 
 type UpdateUserContactInfoParams struct {
-	ID                string      `json:"id"`
-	Email             pgtype.Text `json:"email"`
-	Contact           pgtype.Text `json:"contact"`
-	IsEmailVerified   pgtype.Bool `json:"is_email_verified"`
-	IsContactVerified pgtype.Bool `json:"is_contact_verified"`
+	ID              string      `json:"id"`
+	Email           pgtype.Text `json:"email"`
+	IsEmailVerified pgtype.Bool `json:"is_email_verified"`
 }
 
 func (q *Queries) UpdateUserContactInfo(ctx context.Context, arg UpdateUserContactInfoParams) error {
-	_, err := q.db.Exec(ctx, updateUserContactInfo,
-		arg.ID,
-		arg.Email,
-		arg.Contact,
-		arg.IsEmailVerified,
-		arg.IsContactVerified,
-	)
+	_, err := q.db.Exec(ctx, updateUserContactInfo, arg.ID, arg.Email, arg.IsEmailVerified)
 	return err
 }
 

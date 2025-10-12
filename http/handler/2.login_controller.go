@@ -8,8 +8,9 @@ import (
 	"github.com/bstevary/hexagonal/database/db"
 	"github.com/bstevary/hexagonal/database/model"
 	"github.com/bstevary/hexagonal/jobs"
-	"github.com/guregu/null/v6"
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog/log"
 
 	"github.com/bstevary/hexagonal/utils/auth"
@@ -19,36 +20,31 @@ import (
 )
 
 type MFAChallengeResponse struct {
-	UserID         int64  `json:"user_id"`
-	MFAEnabled     bool   `json:"mfa_enabled"`
-	Message        string `json:"message"`
-	MFAChallengeID string `json:"mfa_challenge_id,omitempty"`
+	ChallengeID string `json:"challenge_id"`
+	MFAEnabled  bool   `json:"mfa_enabled"`
+	Message     string `json:"message"`
 }
 
 type LoginUserResp struct {
-	SessionID            string    `json:"session_id"`
+	SessionID            uuid.UUID `json:"session_id"`
 	AccessToken          string    `json:"access_token"`
-	RefreshToken         string    `json:"refresh_token"`
 	AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
-	ActiveBranch         int64     `json:"active_branch"`
-	ActiveOrganisation   int64     `json:"active_organisation"`
-	Branches             []int64   `json:"branches"`
-	Organisations        []int64   `json:"organisations"`
+	ActiveRef            int64     `json:"active_ref"`
+	References           []int64   `json:"references"`
 	Permissions          []string  `json:"permissions"`
+	Scope                string    `json:"scope"`
 	User                 User      `json:"user"`
 }
 type User struct {
-	UserID    int64  `json:"user_id" `
+	UserID    string `json:"user_id" `
 	FirstName string `json:"first_name" `
 	LastName  string `json:"last_name" `
-	Username  string `json:"username" `
-	Title     string `json:"title" `
-	Gender    string `json:"gender" `
+	Email     string `json:"email" `
 }
 
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=4,max=50"`
+	Password string `json:"password" binding:"required,min=8,max=50"`
 }
 
 func (u Handler) UserLogin(c *gin.Context) {
@@ -69,11 +65,11 @@ func (u Handler) UserLogin(c *gin.Context) {
 	err = auth.CheckPassword(user.Password, req.Password)
 	if err != nil {
 		log.Error().Err(err).Msg("failed varify password")
-		err = fmt.Errorf("%s  or Password is not valid", UserInfo)
+		err = fmt.Errorf("Email or Password is not valid")
 		c.JSON(http.StatusUnauthorized, res.Format(c, err))
 		return
 	}
-	if !user.IsVerified {
+	if !user.IsEmailVerified {
 		err = fmt.Errorf(" your account is not verified yet, please check your email to verify your account")
 		c.JSON(http.StatusUnauthorized, res.Format(c, err))
 		return
@@ -86,7 +82,7 @@ func (u Handler) UserLogin(c *gin.Context) {
 	}
 
 	if !user.IsActive {
-		err = fmt.Errorf(" your account is disabled, please contact the admin")
+		err = fmt.Errorf(" your account is disabled, please contact support team")
 		c.JSON(http.StatusUnauthorized, res.Format(c, err))
 		return
 	}
@@ -111,36 +107,30 @@ func (u Handler) UserLogin(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusOK, MFAChallengeResponse{
-			UserID:     user.ID,
-			MFAEnabled: true,
-			Message:    "MFA challenge initiated. Please provide the code sent to your registered MFA device/email.",
+			ChallengeID: user.ID,
+			MFAEnabled:  true,
+			Message:     "MFA challenge initiated. Please provide the code sent to your registered MFA device/email.",
 		})
 		return
 	}
 	// --- End MFA Handling ---
 
-	userRoles, err := u.db.GetUserRolesByBranch(c, user.ID)
+	userRoles, err := u.db.GetUserRolesWithPermissions(c, user.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
-	raw, err := u.db.GetUserOrganisationIds(c, user.ID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, res.Format(c, err))
-		return
-	}
-	Organisations, activeOrganisation := getDefaultOrganisation(raw)
 
-	branchIDs, activeBranch, Permissions := getPermissionsForSelectedBranch(userRoles, 0, false)
+	references, activeRef, permissions := getPermissionsForSelectedScope(userRoles, 0, false, user.Type)
 
 	accessToken, accessPayload, err := u.tokenizer.CreateToken(
-		user.ID, Permissions, u.config.AccessTokenDuration, c.ClientIP(), activeBranch, branchIDs, activeOrganisation, Organisations)
+		user.ID, permissions, u.config.AccessTokenDuration, c.ClientIP(), user.Type, activeRef, references)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
 	refreshToken, refreshPayload, err := u.tokenizer.CreateToken(
-		user.ID, Permissions, u.config.RefreshTokenDuration, c.ClientIP(), activeBranch, branchIDs, activeOrganisation, Organisations)
+		user.ID, permissions, u.config.RefreshTokenDuration, c.ClientIP(), user.Type, activeRef, references)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
@@ -158,12 +148,12 @@ func (u Handler) UserLogin(c *gin.Context) {
 	})
 
 	err = u.db.CreateSession(c, model.CreateSessionParams{
-		ID:           refreshPayload.ID.String(),
+		ID:           refreshPayload.ID,
 		RefreshToken: refreshToken,
 		UserAgent:    c.Request.UserAgent(),
 		ClientIp:     c.ClientIP(),
 		Expiry:       refreshPayload.ExpiredAt,
-		Staff:        user.ID,
+		UserID:       user.ID,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
@@ -171,31 +161,26 @@ func (u Handler) UserLogin(c *gin.Context) {
 	}
 
 	rsp := LoginUserResp{
-		SessionID:            refreshPayload.ID.String(),
+		SessionID:            refreshPayload.ID,
 		AccessToken:          accessToken,
-		ActiveBranch:         activeBranch,
-		Permissions:          Permissions,
-		Branches:             branchIDs,
-		RefreshToken:         refreshToken,
+		ActiveRef:            activeRef,
+		References:           references,
+		Permissions:          permissions,
+		Scope:                user.Type,
 		AccessTokenExpiresAt: accessPayload.ExpiredAt,
-		Organisations:        Organisations,
-		ActiveOrganisation:   activeOrganisation,
 		User: User{
 			UserID:    user.ID,
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
-			Username:  user.Username,
-			Title:     user.Title,
-			Gender:    user.Gender,
+			Email:     user.Email,
 		},
 	}
 	c.JSON(http.StatusOK, rsp)
 }
 
 type VerifyMFARequest struct {
-	UserID         int64  `json:"user_id" binding:"required"`
-	MFAChallengeID string `json:"mfa_challenge_id,omitempty"`
-	MFACode        string `json:"mfa_code" binding:"required,len=6"`
+	ChallengeID string `json:"challenge_id" binding:"required"`
+	MFACode     string `json:"mfa_code" binding:"required,len=6"`
 }
 
 func (u Handler) MFAChallenge(c *gin.Context) {
@@ -205,30 +190,30 @@ func (u Handler) MFAChallenge(c *gin.Context) {
 		return
 	}
 
-	user_Id, err := u.db.GetVarificationUser(c, req.MFACode)
+	user_Id, err := u.db.GetVerificationUser(c, req.MFACode)
 	if err != nil {
-		log.Error().Err(err).Int64("UserID", req.UserID).Msg("failed to update MFA verification")
+		log.Error().Err(err).Str("UserID", req.ChallengeID).Msg("failed to update MFA verification")
 		c.JSON(http.StatusBadRequest, res.Format(c, fmt.Errorf("failed to pass MFA challenge")))
 		return
 
 	}
-	if user_Id != req.UserID {
-		log.Error().Err(err).Int64("UserID", req.UserID).Msg("failed to update MFA verification")
+	if user_Id != req.ChallengeID {
+		log.Error().Err(err).Str("UserID", req.ChallengeID).Msg("failed to update MFA verification")
 		c.JSON(http.StatusBadRequest, res.Format(c, fmt.Errorf("failed to pass MFA challenge")))
 		return
 
 	}
-	err = u.db.UpdateVerification(c, req.MFACode)
+	_, err = u.db.UpdateVerification(c, req.MFACode)
 	if err != nil {
-		log.Error().Err(err).Int64("UserID", req.UserID).Msg("failed to update MFA verification")
+		log.Error().Err(err).Str("UserID", req.ChallengeID).Msg("failed to update MFA verification")
 		c.JSON(http.StatusBadRequest, res.Format(c, fmt.Errorf("failed to pass MFA challenge")))
 		return
 
 	}
 
-	user, err := u.db.GetUser(c, req.UserID)
+	user, err := u.db.GetUser(c, req.ChallengeID)
 	if err != nil {
-		log.Error().Err(err).Int64("UserID", req.UserID).Msg("failed to select user by ID during MFA verification")
+		log.Error().Err(err).Str("UserID", req.ChallengeID).Msg("failed to select user by ID during MFA verification")
 		c.JSON(http.StatusInternalServerError, res.Format(c, fmt.Errorf("internal server error during MFA verification")))
 		return
 	}
@@ -237,28 +222,22 @@ func (u Handler) MFAChallenge(c *gin.Context) {
 		return
 	}
 
-	userRoles, err := u.db.GetUserRolesByBranch(c, user.ID)
+	userRoles, err := u.db.GetUserRolesWithPermissions(c, user.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
-	raw, err := u.db.GetUserOrganisationIds(c, user.ID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, res.Format(c, err))
-		return
-	}
-	Organisations, activeOrganisation := getDefaultOrganisation(raw)
 
-	branchIDs, activeBranch, Permissions := getPermissionsForSelectedBranch(userRoles, 0, false)
+	references, activeRef, permissions := getPermissionsForSelectedScope(userRoles, 0, false, user.Type)
 
 	accessToken, accessPayload, err := u.tokenizer.CreateToken(
-		user.ID, Permissions, u.config.AccessTokenDuration, c.ClientIP(), activeBranch, branchIDs, activeOrganisation, Organisations)
+		user.ID, permissions, u.config.AccessTokenDuration, c.ClientIP(), user.Type, activeRef, references)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
 	refreshToken, refreshPayload, err := u.tokenizer.CreateToken(
-		user.ID, Permissions, u.config.RefreshTokenDuration, c.ClientIP(), activeBranch, branchIDs, activeOrganisation, Organisations)
+		user.ID, permissions, u.config.RefreshTokenDuration, c.ClientIP(), user.Type, activeRef, references)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
@@ -276,12 +255,12 @@ func (u Handler) MFAChallenge(c *gin.Context) {
 	})
 
 	err = u.db.CreateSession(c, model.CreateSessionParams{
-		ID:           refreshPayload.ID.String(),
+		ID:           refreshPayload.ID,
 		RefreshToken: refreshToken,
 		UserAgent:    c.Request.UserAgent(),
 		ClientIp:     c.ClientIP(),
 		Expiry:       refreshPayload.ExpiredAt,
-		Staff:        user.ID,
+		UserID:       user.ID,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
@@ -289,20 +268,18 @@ func (u Handler) MFAChallenge(c *gin.Context) {
 	}
 
 	rsp := LoginUserResp{
-		SessionID:            refreshPayload.ID.String(),
+		SessionID:            refreshPayload.ID,
 		AccessToken:          accessToken,
-		ActiveBranch:         activeBranch,
-		Permissions:          Permissions,
-		Branches:             branchIDs,
+		ActiveRef:            activeRef,
+		References:           references,
+		Permissions:          permissions,
+		Scope:                user.Type,
 		AccessTokenExpiresAt: accessPayload.ExpiredAt,
-		Organisations:        Organisations,
 		User: User{
 			UserID:    user.ID,
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
-			Username:  user.Username,
-			Title:     user.Title,
-			Gender:    user.Gender,
+			Email:     user.Email,
 		},
 	}
 	c.JSON(http.StatusOK, rsp)
@@ -318,7 +295,7 @@ type ResetUserRequest struct {
 	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Password"`
 }
 
-func (u Handler) ResetAccountPassword(c *gin.Context) {
+func (u Handler) ResetPassword(c *gin.Context) {
 	var req ResetUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, res.Format(c, err))
@@ -330,9 +307,9 @@ func (u Handler) ResetAccountPassword(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, res.Format(c, err))
 		return
 	}
-	err = u.db.ActivateUserAccountTx(c, db.ActivateUserAccountTxParams{
+	err = u.db.ResetPasswordTx(c, db.ResetPasswordTxParams{
 		SecretCode:     req.Otp,
-		HashedPassword: hashPassword,
+		HashedPassword: stringToPgText(hashPassword),
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
@@ -367,42 +344,7 @@ func (u Handler) ForgotPassword(c *gin.Context) {
 
 	if err := u.taskDistributer.DistributeTaskSendAuthEmail(c, taskPayload, opts...); err != nil {
 		log.Error().Err(err).Msg("failed to distribute forgot password  email task")
-		c.JSON(http.StatusInternalServerError, res.Format(c, err))
-		return
-	}
-	c.JSON(http.StatusOK, "")
-}
-
-type ResetPasswordRequest struct {
-	Password        string `json:"password" binding:"required,min=8,max=20"`
-	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Password"`
-}
-type OTPQuery struct {
-	Otp string `uri:"otp" binding:"required"`
-}
-
-func (u Handler) ResetPassword(c *gin.Context) {
-	var qry OTPQuery
-	if err := c.ShouldBindUri(&qry); err != nil {
-		c.JSON(http.StatusBadRequest, res.Format(c, err))
-		return
-	}
-	var req ResetPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, res.Format(c, err))
-		return
-	}
-
-	hashPassword, err := auth.HashPassword(req.Password)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, res.Format(c, err))
-		return
-	}
-	err = u.db.ActivateUserAccountTx(c, db.ActivateUserAccountTxParams{
-		SecretCode:     qry.Otp,
-		HashedPassword: hashPassword,
-	})
-	if err != nil {
+		err = fmt.Errorf("something went wrong")
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
@@ -423,7 +365,7 @@ func (u Handler) ChangePassword(c *gin.Context) {
 	}
 
 	payload := c.MustGet(auth.AuthKey).(*auth.Payload)
-	user, err := u.db.SelectUser(c, payload.UserID)
+	user, err := u.db.GetUser(c, payload.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
@@ -440,9 +382,10 @@ func (u Handler) ChangePassword(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return
 	}
-	err = u.db.UpdateUser(c, model.UpdateUserParams{
-		ID:       payload.UserID,
-		Password: null.StringFrom(hashPassword),
+	err = u.db.UpdateUserSecurityInfo(c, model.UpdateUserSecurityInfoParams{
+		ID:                 payload.UserID,
+		Password:           stringToPgText(hashPassword),
+		LastPasswordChange: pgtype.Timestamptz{Time: time.Now(), Valid: true},
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
@@ -465,7 +408,7 @@ func (u Handler) Logout(c *gin.Context) {
 		return
 	}
 
-	err = u.db.DeleteSession(c, payload.ID.String())
+	err = u.db.DeleteSession(c, payload.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.Format(c, err))
 		return

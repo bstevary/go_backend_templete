@@ -12,6 +12,7 @@ import (
 	"github.com/bstevary/hexagonal/jobs"
 	"github.com/bstevary/hexagonal/services/S3"
 	"github.com/bstevary/hexagonal/utils/auth"
+	"github.com/bstevary/hexagonal/utils/id"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/cache/v9"
 	"github.com/go-redis/redis_rate/v10"
@@ -27,11 +28,12 @@ type Server struct {
 }
 type ServerDependencies struct {
 	Config          *config.Env
-	DB              *db.Database
+	DB              db.Database
 	RedisClient     *redis.Client
-	TaskDistributor *jobs.TaskDistributor
-	S3Uploader      *S3.S3Uploader
+	TaskDistributor jobs.TaskDistributor
+	S3Uploader      S3.S3Uploader
 	RabbitMQ        *amqp.Channel
+	IdGen           *id.IDGenerator
 }
 
 func NewHTTPServer(arg ServerDependencies) (*Server, error) {
@@ -45,7 +47,7 @@ func NewHTTPServer(arg ServerDependencies) (*Server, error) {
 	})
 
 	handler := handler.NewHandler(arg.DB, arg.TaskDistributor, radisCache,
-		&token, arg.Config, arg.RabbitMQ, arg.S3Uploader)
+		token, arg.Config, arg.RabbitMQ, arg.S3Uploader, arg.IdGen)
 
 	router := newRouter(routerConfig{
 		handler: handler,

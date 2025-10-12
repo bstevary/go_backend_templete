@@ -115,18 +115,16 @@ type Session struct {
 type User struct {
 	ID                 string             `json:"id"`
 	FirstName          string             `json:"first_name"`
-	MiddleName         pgtype.Text        `json:"middle_name"`
 	LastName           string             `json:"last_name"`
+	MiddleName         pgtype.Text        `json:"middle_name"`
 	OtherName          pgtype.Text        `json:"other_name"`
 	Email              string             `json:"email"`
-	Contact            string             `json:"contact"`
 	Password           string             `json:"password"`
 	IsActive           bool               `json:"is_active"`
 	IsLocked           bool               `json:"is_locked"`
 	MfaEnabled         bool               `json:"mfa_enabled"`
 	FailedAttempts     int32              `json:"failed_attempts"`
 	Notes              pgtype.Text        `json:"notes"`
-	IsContactVerified  bool               `json:"is_contact_verified"`
 	IsEmailVerified    bool               `json:"is_email_verified"`
 	LastSecurityCheck  pgtype.Timestamptz `json:"last_security_check"`
 	LastPasswordChange pgtype.Timestamptz `json:"last_password_change"`
@@ -140,6 +138,9 @@ type User struct {
 
 type UserProfile struct {
 	ID                string             `json:"id"`
+	Contact           string             `json:"contact"`
+	NetworkProvider   pgtype.Text        `json:"network_provider"`
+	IsContactVerified bool               `json:"is_contact_verified"`
 	Title             pgtype.Text        `json:"title"`
 	Gender            string             `json:"gender"`
 	Avatar            pgtype.Text        `json:"avatar"`
@@ -149,7 +150,6 @@ type UserProfile struct {
 	IdentityNumber    string             `json:"identity_number"`
 	IDFront           pgtype.Text        `json:"id_front"`
 	IDBack            pgtype.Text        `json:"id_back"`
-	NetworkProvider   pgtype.Text        `json:"network_provider"`
 	AcceptedMarketing bool               `json:"accepted_marketing"`
 	Bio               pgtype.Text        `json:"bio"`
 	Other             []byte             `json:"other"`

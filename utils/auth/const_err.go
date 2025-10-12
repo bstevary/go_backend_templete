@@ -2,10 +2,16 @@ package auth
 
 import "errors"
 
+// const (
+// 	AuthorizationHeaderKey  = "authorization"
+// 	AuthorizationTypeBearer = "bearer"
+// 	AuthorizationPayloadkey = "authorization_payload"
+// )
+
 const (
-	AuthorizationHeaderKey  = "authorization"
-	AuthorizationTypeBearer = "bearer"
-	AuthorizationPayloadkey = "authorization_payload"
+	AuthHeaderKey   = "authorization"
+	BearerAuthToken = "bearer"
+	AuthKey         = "auth"
 )
 
 var (

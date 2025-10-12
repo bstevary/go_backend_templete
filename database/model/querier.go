@@ -26,6 +26,8 @@ type Querier interface {
 	CreateVerification(ctx context.Context, arg CreateVerificationParams) error
 	DeleteBranch(ctx context.Context, id int64) error
 	DeleteBranchUser(ctx context.Context, arg DeleteBranchUserParams) error
+	DeleteExpiredSessions(ctx context.Context, userID string) error
+	DeleteExpiredVerifications(ctx context.Context, userID string) error
 	DeleteOrganization(ctx context.Context, id int64) error
 	DeleteOrganizationUser(ctx context.Context, arg DeleteOrganizationUserParams) error
 	DeletePermission(ctx context.Context, id int64) error
@@ -44,7 +46,7 @@ type Querier interface {
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
 	GetUser(ctx context.Context, id string) (User, error)
 	GetUserRoles(ctx context.Context, arg GetUserRolesParams) ([]GetUserRolesRow, error)
-	GetUserRolesByBranch(ctx context.Context, userID string) ([]GetUserRolesByBranchRow, error)
+	GetUserRolesWithPermissions(ctx context.Context, userID string) ([]GetUserRolesWithPermissionsRow, error)
 	GetVerificationUser(ctx context.Context, otp string) (string, error)
 	ListAllRoles(ctx context.Context, arg ListAllRolesParams) ([]ListAllRolesRow, error)
 	ListBranches(ctx context.Context, arg ListBranchesParams) ([]Branch, error)
@@ -52,7 +54,6 @@ type Querier interface {
 	ListPermissions(ctx context.Context, arg ListPermissionsParams) ([]ListPermissionsRow, error)
 	ListRoles(ctx context.Context, arg ListRolesParams) ([]ListRolesRow, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)
-	SelectUserByContact(ctx context.Context, contact string) (User, error)
 	SelectUserByEmail(ctx context.Context, email string) (User, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) error
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) error
@@ -64,7 +65,7 @@ type Querier interface {
 	UpdateUserRoleAndType(ctx context.Context, arg UpdateUserRoleAndTypeParams) error
 	UpdateUserSecurityInfo(ctx context.Context, arg UpdateUserSecurityInfoParams) error
 	UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) error
-	UpdateVerification(ctx context.Context, otp string) error
+	UpdateVerification(ctx context.Context, otp string) (string, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -11,8 +11,8 @@ import (
 	"github.com/bstevary/hexagonal/config"
 	"github.com/bstevary/hexagonal/database/model"
 	"github.com/bstevary/hexagonal/services/mailer"
+	"github.com/bstevary/hexagonal/utils/id"
 	"github.com/bstevary/hexagonal/utils/res"
-	"github.com/bstevary/hexagonal/utils/unique"
 
 	"github.com/hibiken/asynq"
 	"github.com/rs/zerolog/log"
@@ -52,7 +52,7 @@ type PayloadSendAuthEmail struct {
 	Type   string `json:"type"`
 }
 
-func (d *RadisTaskDistributor) DistributeTaskSendAuthEmail(ctx context.Context, payload *PayloadSendAuthEmail, opts ...asynq.Option) error {
+func (d *RedisTaskDistributor) DistributeTaskSendAuthEmail(ctx context.Context, payload *PayloadSendAuthEmail, opts ...asynq.Option) error {
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal task payload: %w", err)
@@ -82,7 +82,7 @@ func (prc *RedisTaskProcessor) ProcessSendAuthEmailTask(ctx context.Context, tas
 		return fmt.Errorf("failed to select user: %w", err)
 	}
 
-	otpCode, err := unique.GenerateOTP()
+	otpCode, err := id.GenerateOTP()
 	if err != nil {
 		return fmt.Errorf("failed to generate OTP: %w", err)
 	}

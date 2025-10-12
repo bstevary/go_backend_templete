@@ -33,7 +33,7 @@ func AuthMiddleware(t auth.TokenGenerator) gin.HandlerFunc {
 			return
 		}
 		authorizationType := strings.ToLower(fields[0])
-		if authorizationType != auth.AuthorizationTypeBearer {
+		if authorizationType != auth.BearerAuthToken {
 			err := errors.New("unsopported authorization type")
 			c.AbortWithStatusJSON(http.StatusUnauthorized, res.Format(c, err))
 			return
@@ -52,7 +52,7 @@ func AuthMiddleware(t auth.TokenGenerator) gin.HandlerFunc {
 			return
 		}
 
-		c.Set(auth.AuthorizationPayloadkey, payload)
+		c.Set(auth.AuthKey, payload)
 
 		c.Next()
 	}

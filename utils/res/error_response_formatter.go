@@ -45,9 +45,8 @@ func msgForTag(tag string) string {
 }
 
 func Format(ctx *gin.Context, err error) UnifiedErrorResponse {
-	log.Error().Err(err).Msg("error")
 	// add error to context
-	ctx.Error(err)
+	// ctx.Error(err)
 
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {

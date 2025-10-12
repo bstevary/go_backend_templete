@@ -38,6 +38,16 @@ func (q *Queries) CreateVerification(ctx context.Context, arg CreateVerification
 	return err
 }
 
+const deleteExpiredVerifications = `-- name: DeleteExpiredVerifications :exec
+ DELETE FROM verifications
+ WHERE user_id = $1 AND expiry < NOW()
+`
+
+func (q *Queries) DeleteExpiredVerifications(ctx context.Context, userID string) error {
+	_, err := q.db.Exec(ctx, deleteExpiredVerifications, userID)
+	return err
+}
+
 const getVerificationUser = `-- name: GetVerificationUser :one
  SELECT user_id FROM verifications 
  WHERE otp = $1
@@ -53,16 +63,19 @@ func (q *Queries) GetVerificationUser(ctx context.Context, otp string) (string, 
 	return user_id, err
 }
 
-const updateVerification = `-- name: UpdateVerification :exec
+const updateVerification = `-- name: UpdateVerification :one
 UPDATE verifications
 SET
     is_used = TRUE
 WHERE otp = $1
     AND is_used = FALSE
     AND expiry > NOW()
+RETURNING user_id
 `
 
-func (q *Queries) UpdateVerification(ctx context.Context, otp string) error {
-	_, err := q.db.Exec(ctx, updateVerification, otp)
-	return err
+func (q *Queries) UpdateVerification(ctx context.Context, otp string) (string, error) {
+	row := q.db.QueryRow(ctx, updateVerification, otp)
+	var user_id string
+	err := row.Scan(&user_id)
+	return user_id, err
 }

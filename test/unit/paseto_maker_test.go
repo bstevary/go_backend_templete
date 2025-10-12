@@ -29,7 +29,7 @@ func TestPasetoMaker(t *testing.T) {
 	require.NotEmpty(t, token)
 
 	require.NotZero(t, payload.ID)
-	require.Equal(t, username, payload.Email)
+	require.Equal(t, username, payload.UserID)
 	require.WithinDuration(t, issuedAt, payload.IssuedAt, time.Second)
 	require.WithinDuration(t, expiredAt, payload.ExpiredAt, time.Second)
 }

@@ -30,3 +30,7 @@ SET
   is_blocked = COALESCE(sqlc.narg (is_blocked))
 WHERE
   id = $1;
+
+-- name: DeleteExpiredSessions :exec
+DELETE FROM sessions
+WHERE expiry < NOW() AND user_id = $1;

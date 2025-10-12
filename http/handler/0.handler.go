@@ -6,22 +6,25 @@ import (
 	"github.com/bstevary/hexagonal/jobs"
 	"github.com/bstevary/hexagonal/services/S3"
 	"github.com/bstevary/hexagonal/utils/auth"
+	"github.com/bstevary/hexagonal/utils/id"
 	"github.com/go-redis/cache/v9"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Handler struct {
-	db              *db.Database
-	taskDistributer *jobs.TaskDistributor
-	tokenizer       *auth.TokenGenerator
+	db              db.Database
+	taskDistributer jobs.TaskDistributor
+	tokenizer       auth.TokenGenerator
 	config          *config.Env
 	cache           *cache.Cache
 	rabbitMQ        *amqp.Channel
-	S3              *S3.S3Uploader
+	S3              S3.S3Uploader
+	IdGen           *id.IDGenerator
 }
 
-func NewHandler(db *db.Database, taskDistributer *jobs.TaskDistributor, cache *cache.Cache,
-	tokenGenerator *auth.TokenGenerator, config *config.Env, rabbitMQ *amqp.Channel, s3 *S3.S3Uploader) *Handler {
+func NewHandler(db db.Database, taskDistributer jobs.TaskDistributor,
+	cache *cache.Cache, tokenGenerator auth.TokenGenerator, config *config.Env,
+	rabbitMQ *amqp.Channel, s3 S3.S3Uploader, IdGen *id.IDGenerator) *Handler {
 	return &Handler{
 		db:              db,
 		taskDistributer: taskDistributer,
@@ -30,6 +33,7 @@ func NewHandler(db *db.Database, taskDistributer *jobs.TaskDistributor, cache *c
 		cache:           cache,
 		rabbitMQ:        rabbitMQ,
 		S3:              s3,
+		IdGen:           IdGen,
 	}
 }
 

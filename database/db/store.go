@@ -12,6 +12,8 @@ import (
 
 type Database interface {
 	model.Querier
+	ResetPasswordTx(ctx context.Context, arg ResetPasswordTxParams) error
+	CreateUserTx(ctx context.Context, arg CreateUserTxParams) error
 }
 type SQLStore struct {
 	connPool *pgxpool.Pool

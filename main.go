@@ -13,6 +13,7 @@ import (
 	"github.com/bstevary/hexagonal/http/server"
 	"github.com/bstevary/hexagonal/jobs"
 	"github.com/bstevary/hexagonal/services/mailer"
+	"github.com/bstevary/hexagonal/utils/id"
 	"github.com/bstevary/hexagonal/utils/logger"
 	"github.com/rs/zerolog/log"
 
@@ -122,13 +123,22 @@ func main() {
 
 	taskDistributor := jobs.NewRedisTaskDistributor(redisOpt)
 
+	// initialize Id generator
+	IdGen, err := id.NewIDGen(env.WorkerID)
+	if err != nil {
+		log.Fatal().Msgf("cannot create Id generator: %v", err)
+	}
+
+	// create the http server
+
 	server, err := server.NewHTTPServer(server.ServerDependencies{
 		Config:          env,
-		DB:              &conn,
+		DB:              conn,
 		RedisClient:     redisClient,
-		TaskDistributor: &taskDistributor,
+		TaskDistributor: taskDistributor,
 		S3Uploader:      nil,
 		RabbitMQ:        rabbitMQ,
+		IdGen:           IdGen,
 	})
 	if err != nil {
 		log.Fatal().Msgf("cannot create server: %v", err)

@@ -17,9 +17,10 @@ DELETE FROM authorities
 WHERE role = $1 AND user_id = $2 AND reference = COALESCE(sqlc.narg(reference), reference);
 
 
--- name: GetUserRolesByBranch :many
+-- name: GetUserRolesWithPermissions :many
 SELECT 
-  COALESCE(ur.reference, 0) AS reference, 
+  COALESCE(ur.reference, 0) AS reference,
+  COALESCE(ur.scope, 'ORG') AS scope, 
   r.name AS role,
   p.code AS permission
 FROM authorities ur

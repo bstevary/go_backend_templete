@@ -6,7 +6,7 @@ INSERT INTO users (
     last_name,
     other_name,
     email,
-    contact,
+    accepted_terms,
     password,
     role,
     type
@@ -27,9 +27,7 @@ UPDATE users
 SET 
   updated_at = NOW(),
   email = COALESCE(sqlc.narg(email), email),
-  contact = COALESCE(sqlc.narg(contact), contact),
-  is_email_verified = COALESCE(sqlc.narg(is_email_verified), is_email_verified),
-  is_contact_verified = COALESCE(sqlc.narg(is_contact_verified), is_contact_verified)
+  is_email_verified = COALESCE(sqlc.narg(is_email_verified), is_email_verified)
 WHERE id = $1;
 
 -- name: UpdateUserSecurityInfo :exec
@@ -62,9 +60,9 @@ WHERE id = $1;
 
 -- name: ListUsers :many
 SELECT 
-  id, first_name, middle_name, last_name, other_name, email, contact, 
-  role, type, is_active, is_locked, mfa_enabled, failed_attempts, 
-  is_email_verified, is_contact_verified, created_at, updated_at
+  id, first_name, middle_name, last_name, other_name, email, role,
+  type, is_active, is_locked, mfa_enabled, failed_attempts, 
+  is_email_verified, last_login, created_at, updated_at
 FROM users
 ORDER BY id DESC
 LIMIT $1 OFFSET $2;
@@ -75,11 +73,6 @@ SELECT COUNT(*) FROM users;
 -- name: SelectUserByEmail :one
 SELECT * FROM users
 WHERE email = $1
-LIMIT 1;
-
--- name: SelectUserByContact :one
-SELECT * FROM users
-WHERE contact = $1
 LIMIT 1;
 
 -- name: GetUser :one

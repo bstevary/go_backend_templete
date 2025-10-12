@@ -14,8 +14,9 @@ type pasetoMaker struct {
 }
 
 // CreateToken implements TokenGenerator.
-func (maker *pasetoMaker) CreateToken(email string, duration time.Duration, clientIp string) (string, *Payload, error) {
-	payload, err := Newpayload(email, duration, clientIp)
+func (maker *pasetoMaker) CreateToken(UserID string, Permissions []string, Duration time.Duration, ClientIP string, Scope string,
+	ActiveReference int64, References []int64) (string, *Payload, error) {
+	payload, err := Newpayload(UserID, Permissions, Duration, ClientIP, Scope, ActiveReference, References)
 	if err != nil {
 		return "", payload, fmt.Errorf("failed to create payload %w", err)
 	}

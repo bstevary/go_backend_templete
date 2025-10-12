@@ -15,14 +15,14 @@ func AddAuthRoutes(r *gin.RouterGroup, h *handler.Handler, lmt *redis_rate.Limit
 	onboarding.POST("user", m.RateLimit(lmt, redis_rate.PerHour(10)), h.CreateUserAccount)
 	onboarding.POST("verify", m.RateLimit(lmt, redis_rate.PerHour(10)), h.ActivateUserAccount)
 
-	r.POST("login", m.RateLimit(lmt, redis_rate.PerMinute(3)), h.UserLogin)
-	r.GET("logout", m.RateLimit(lmt, redis_rate.PerMinute(3)), h.Logout)
+	auth := r.Group("auth/")
+	auth.POST("login", m.RateLimit(lmt, redis_rate.PerMinute(3)), h.UserLogin)
+	auth.GET("logout", m.RateLimit(lmt, redis_rate.PerMinute(3)), h.Logout)
 
-	r.POST("mfa", m.RateLimit(lmt, redis_rate.PerMinute(3)), h.MFAChallenge)
-	r.GET("refresh", m.RateLimit(lmt, redis_rate.PerMinute(3)), h.RefreshToken)
+	auth.POST("mfa", m.RateLimit(lmt, redis_rate.PerMinute(3)), h.MFAChallenge)
+	auth.GET("refresh", m.RateLimit(lmt, redis_rate.PerMinute(3)), h.RenewAccessToken)
 
-	r.POST("password/forgot", m.RateLimit(lmt, redis_rate.PerSecond(1)), h.ForgotPassword)
-	r.POST("password/reset", m.RateLimit(lmt, redis_rate.PerHour(10)), h.ResetUserAccount)
-	r.POST("password/reset/otp", m.RateLimit(lmt, redis_rate.PerHour(10)), h.ResetPassword)
+	auth.POST("password/forgot", m.RateLimit(lmt, redis_rate.PerSecond(1)), h.ForgotPassword)
+	auth.POST("password/reset", m.RateLimit(lmt, redis_rate.PerHour(10)), h.ResetPassword)
 
 }

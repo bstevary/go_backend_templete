@@ -3,22 +3,20 @@ CREATE TABLE
     id VARCHAR(10) PRIMARY KEY,
 
     first_name VARCHAR(25) NOT NULL,
-    middle_name VARCHAR(25),
     last_name VARCHAR(25) NOT NULL,
+    middle_name VARCHAR(25),
     other_name VARCHAR(100),
 
     email VARCHAR(80) UNIQUE NOT NULL,
-    contact VARCHAR(25) UNIQUE NOT NULL,
 
     password VARCHAR(255) NOT NULL,
 
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_active BOOLEAN NOT NULL DEFAULT FALSE,
     is_locked BOOLEAN NOT NULL DEFAULT FALSE,
     mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     failed_attempts INT NOT NULL DEFAULT 0,
     notes TEXT,
 
-    is_contact_verified BOOLEAN NOT NULL DEFAULT FALSE,
     is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     last_security_check TIMESTAMPTZ NULL,    
     last_password_change TIMESTAMPTZ NULL,
@@ -36,6 +34,9 @@ CREATE TABLE
 CREATE TABLE
  "user_profiles" (
     id VARCHAR(10) PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    contact VARCHAR(25) UNIQUE NOT NULL,
+    network_provider VARCHAR(60) NULL, -- AIRTEL , MTN, used to inticate provider
+    is_contact_verified BOOLEAN NOT NULL DEFAULT FALSE,
     title VARCHAR(10) ,
     gender VARCHAR(40) NOT NULL,
     avatar VARCHAR(255) UNIQUE ,
@@ -45,7 +46,6 @@ CREATE TABLE
     identity_number VARCHAR(60) NOT NULL,
     id_front VARCHAR(255) UNIQUE , 
     id_back VARCHAR(255) UNIQUE ,
-    network_provider VARCHAR(60) NULL, -- AIRTEL , MTN, used to inticate provider
     accepted_marketing BOOLEAN NOT NULL DEFAULT FALSE,
     bio TEXT ,
     other JSON,

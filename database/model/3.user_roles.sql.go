@@ -100,9 +100,10 @@ func (q *Queries) GetUserRoles(ctx context.Context, arg GetUserRolesParams) ([]G
 	return items, nil
 }
 
-const getUserRolesByBranch = `-- name: GetUserRolesByBranch :many
+const getUserRolesWithPermissions = `-- name: GetUserRolesWithPermissions :many
 SELECT 
-  COALESCE(ur.reference, 0) AS reference, 
+  COALESCE(ur.reference, 0) AS reference,
+  COALESCE(ur.scope, 'ORG') AS scope, 
   r.name AS role,
   p.code AS permission
 FROM authorities ur
@@ -113,22 +114,28 @@ WHERE ur.user_id = $1
 ORDER BY ur.reference, r.name
 `
 
-type GetUserRolesByBranchRow struct {
+type GetUserRolesWithPermissionsRow struct {
 	Reference  int64  `json:"reference"`
+	Scope      string `json:"scope"`
 	Role       string `json:"role"`
 	Permission string `json:"permission"`
 }
 
-func (q *Queries) GetUserRolesByBranch(ctx context.Context, userID string) ([]GetUserRolesByBranchRow, error) {
-	rows, err := q.db.Query(ctx, getUserRolesByBranch, userID)
+func (q *Queries) GetUserRolesWithPermissions(ctx context.Context, userID string) ([]GetUserRolesWithPermissionsRow, error) {
+	rows, err := q.db.Query(ctx, getUserRolesWithPermissions, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetUserRolesByBranchRow{}
+	items := []GetUserRolesWithPermissionsRow{}
 	for rows.Next() {
-		var i GetUserRolesByBranchRow
-		if err := rows.Scan(&i.Reference, &i.Role, &i.Permission); err != nil {
+		var i GetUserRolesWithPermissionsRow
+		if err := rows.Scan(
+			&i.Reference,
+			&i.Scope,
+			&i.Role,
+			&i.Permission,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
